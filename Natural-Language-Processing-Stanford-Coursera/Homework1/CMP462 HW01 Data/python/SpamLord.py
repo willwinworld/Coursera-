@@ -1,9 +1,40 @@
+#! python3
+# -*- coding: utf-8 -*-
 import sys
 import os
 import re
 import pprint
 
-my_first_pat = '(\w+)@(\w+).edu'
+
+# my_first_pat = '(\w+)@(\w+).edu'
+# email_pat = '(\w+)@(\w+).edu|(\w+)@(\w+)\.(\w+).edu|(\w+)@(\w+)\.(\w+).edu|(\w+)\.(\w+)@(\w+)\.(\w+).edu|(\w+)\.(\w+)@(\w+).edu|(\w+)@(\w+)\.(\w+).edu'
+# email_pat = '(?=(\w+)@(\w+).edu)(?=(\w+)@(\w+)\.(\w+).edu)(?=(\w+)\.(\w+)@(\w+)\.(\w+).edu)(?=(\w+)\.(\w+)@(\w+).edu)(?=(\w+)@(\w+)\.(\w+).edu)'
+# email_pat_0 = '(\w+)@(\w+).edu'
+# email_pat_1 = '(\w+)@(\w+)\.(\w+).edu'
+# email_pat_2 = '(\w+)\.(\w+)@(\w+)\.(\w+).edu'
+# email_pat_3 = '(\w+)\.(\w+)@(\w+).edu'
+# email_pat_4 = '(\w+)@(\w+)\.(\w+).edu'
+# phone_pat = '\d{3}-\d{3}-\d{4}'
+my_email_pattern = r'''
+                                                   # pattern for email
+        (([\w-]+|[\w-]+\.[\w-]+)                   # hanks, justin.hanks, hanks-, justin-hanks-
+        (\s.?\(f.*y.*)?                            # followed by 
+        (\s?(@|&.*;)\s?|\s(at|where)\s)            # @, @ , at , where ,&#x40;,
+        ([\w-]+|[\w-]+([\.;]|\sdo?t\s|\s)[\w-]+)   # gmail., ics.bjtu, ics;bjtu, ics dot bjtu, -ics-bjtu-
+        ([\.;]|\s(do?t|DOM)\s|\s)                  # ., ;, dot , dt , DOM
+        (-?e-?d-?u|com)\b)                         # .edu, .com, -e-d-u
+        |
+        (obfuscate\('(\w+\.edu)','(\w+)'\))        # obfuscate('stanford.edu','jurafsky')             
+        '''
+my_phone_pattern = r'''
+                         # pattern for phone
+        \(?(\d{3})\)?    # area code is 3 digits, e.g. (650), 650
+        [ -]?            # separator is - or space or nothing, e.g. 650-XXX, 650 XXX, (650)XXX
+        (\d{3})          # trunk is 3 digits, e.g. 800
+        [ -]             # separator is - or space
+        (\d{4})          # rest of number is 4 digits, e.g. 0987
+        \D+              # should have at least one non digit character at the end
+        '''
 
 """
 TODO
@@ -26,16 +57,74 @@ NOTE: You shouldn't need to worry about this, but just so you know, the
 sure you check the StringIO interface if you do anything really tricky,
 though StringIO should support most everything.
 """
+
+
+# def process_file(name, f):
+#     # note that debug info should be printed to stderr
+#     # sys.stderr.write('[process_file]\tprocessing file: %s\n' % (path))
+#
+#     res = []
+#     for line in f:
+#         email_matches_0 = re.findall(email_pat_0, line)
+#         email_matches_1 = re.findall(email_pat_1, line)
+#         email_matches_2 = re.findall(email_pat_2, line)
+#         email_matches_3 = re.findall(email_pat_3, line)
+#         email_matches_4 = re.findall(email_pat_4, line)
+#         # email = None
+#         for m in email_matches_0:
+#             email = '%s@%s.edu' % m
+#             res.append((name, 'e', email))
+#         for m in email_matches_1:
+#             email = '%s@%s.%s.edu' % m
+#             res.append((name, 'e', email))
+#         for m in email_matches_2:
+#             email = '%s.%s@%s.%s.edu' % m
+#             res.append((name, 'e', email))
+#         for m in email_matches_3:
+#             email = '%s.%s@%s.edu' % m
+#             res.append((name, 'e', email))
+#         for m in email_matches_4:
+#             email = '%s@%s.%s.edu' % m
+#             res.append((name, 'e', email))
+#         # res.append((name, 'e', email))
+#
+#         phone_matches = re.findall(phone_pat, line)
+#         for m in phone_matches:
+#             res.append((name, 'p', m))
+#     return res
+
+
 def process_file(name, f):
     # note that debug info should be printed to stderr
     # sys.stderr.write('[process_file]\tprocessing file: %s\n' % (path))
     res = []
     for line in f:
-        matches = re.findall(my_first_pat,line)
+        # match email
+        matches = re.findall(my_email_pattern, line, re.VERBOSE | re.I)
         for m in matches:
-            email = '%s@%s.edu' % m
-            res.append((name,'e',email))
+            email = ""
+            if len(m[-1]) != 0:
+                email = '%s@%s' % (m[-1], m[-2])
+            else:
+                if m[1] == "Server":
+                    # skip "server at" sentence
+                    continue
+                email = '%s@%s.%s' % (m[1].replace("-", ""),
+                                      m[6].replace(";", ".")
+                                      .replace(" dot ", ".")
+                                      .replace("-", "")
+                                      .replace(" ", "."),
+                                      m[-4].replace("-", ""))
+            res.append((name, 'e', email))
+
+        # match phone number
+        matches = re.findall(my_phone_pattern, line, re.VERBOSE)
+        for m in matches:
+            phone = '%s-%s-%s' % m
+            res.append((name, 'p', phone))
+
     return res
+
 
 """
 You should not need to edit this function, nor should you alter
@@ -89,13 +178,13 @@ def score(guess_list, gold_list):
     #pp.pprint(guess_set)
     #print 'Gold (%d): ' % len(gold_set)
     #pp.pprint(gold_set)
-    print 'True Positives (%d): ' % len(tp)
+    print('True Positives (%d): ' % len(tp))
     pp.pprint(tp)
-    print 'False Positives (%d): ' % len(fp)
+    print('False Positives (%d): ' % len(fp))
     pp.pprint(fp)
-    print 'False Negatives (%d): ' % len(fn)
+    print('False Negatives (%d): ' % len(fn))
     pp.pprint(fn)
-    print 'Summary: tp=%d, fp=%d, fn=%d' % (len(tp),len(fp),len(fn))
+    print('Summary: tp=%d, fp=%d, fn=%d' % (len(tp), len(fp), len(fn)))
 
 """
 You should not need to edit this function.
@@ -104,7 +193,7 @@ gold file
 """
 def main(data_path, gold_path):
     guess_list = process_dir(data_path)
-    gold_list =  get_gold(gold_path)
+    gold_list = get_gold(gold_path)
     score(guess_list, gold_list)
 
 """
@@ -113,10 +202,12 @@ It then processes each file within that directory and extracts any
 matching e-mails or phone numbers and compares them to the gold file
 """
 if __name__ == '__main__':
-    if (len(sys.argv) == 1):
+    if len(sys.argv) == 1:
+        # 当没有加参数的时候 python SpamLord.py
         main('../data/dev', '../data/devGOLD')
-    elif (len(sys.argv) == 3):
-        main(sys.argv[1],sys.argv[2])
+    elif len(sys.argv) == 3:
+        # 当加了两个参数的时候 python SpamLord.py dev devGOLD
+        main(sys.argv[1], sys.argv[2])
     else:
-        print 'usage:\tSpamLord.py <data_dir> <gold_file>'
+        print('usage:\tSpamLord.py <data_dir> <gold_file>')
         sys.exit(0)
