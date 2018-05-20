@@ -16,6 +16,7 @@ import sys
 import getopt
 import os
 import math
+import collections
 
 class NaiveBayes:
   class TrainSplit:
@@ -39,7 +40,12 @@ class NaiveBayes:
     self.FILTER_STOP_WORDS = False
     self.stopList = set(self.readFile('../data/english.stop'))
     self.numFolds = 10
-
+    self.posCommentCount = 0
+    self.negCommentCount = 0
+    self.posWordCount = 0
+    self.negWordCount = 0
+    self.posFeatureCount = collections.defaultdict(lambda : 0)
+    self.negFeatureCount = collections.defaultdict(lambda : 0)
   #############################################################################
   # TODO TODO TODO TODO TODO
 
@@ -47,7 +53,24 @@ class NaiveBayes:
     """ TODO
       'words' is a list of words to classify. Return 'pos' or 'neg' classification.
     """
-    return 'pos'
+    posScore = 0.0
+    negScore = 0.0
+    posVocab = len(self.posFeatureCount.items())
+    negVocab = len(self.negFeatureCount.items())
+    for token in words:
+        posScore += math.log(self.posFeatureCount[token] + 1)
+        posScore -= math.log(self.posWordCount + posVocab + negVocab)
+        negScore += math.log(self.negFeatureCount[token] + 1)
+        negScore -= math.log(self.negWordCount + posVocab + negVocab)
+    posScore += math.log(self.posCommentCount)
+    posScore -= math.log(self.posCommentCount + self.negCommentCount)
+    negScore += math.log(self.negCommentCount)
+    negScore -= math.log(self.posCommentCount + self.negCommentCount)
+
+    if posScore > negScore:
+        return 'pos'
+    else:
+        return 'neg'
 
 
   def addExample(self, klass, words):
@@ -59,13 +82,27 @@ class NaiveBayes:
      * in the NaiveBayes class.
      * Returns nothing
     """
-    pass
+    if klass == 'pos':
+        self.posCommentCount += 1
+        for word in words:
+            self.posFeatureCount[word] += 1
+            self.posWordCount += 1
+    else:
+        self.negCommentCount += 1
+        for word in words:
+            self.negFeatureCount[word] += 1
+            self.negWordCount += 1
 
   def filterStopWords(self, words):
     """
     * TODO
     * Filters stop words found in self.stopList.
     """
+    result = []
+    for word in words:
+        if word not in self.stopList:
+            result.append(word)
+    words = result
     return words
 
   # TODO TODO TODO TODO TODO
